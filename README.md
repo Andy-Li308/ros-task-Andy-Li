@@ -19,13 +19,20 @@ Please read through [this](https://www.overleaf.com/read/dmgrrcmpkbkq#211e69) do
 
 ```bash
 ./scripts/deploy/devel.sh # To enter the docker container
+./scripts/deploy/start.sh # To start the simulation and control task 
 ros2 launch limo_simulation limo.launch.py # To launch the simulator
+```
+
+When running ./scripts/deploy/start.sh for the first time on the system, you might need to run the following to make app.sh executable: 
+
+```bash
+chmod +x ./scripts/deploy/app.sh
 ```
 
 ### What do I edit?
 
 1. Modify the package `limo_control` in the workspace directory for adding your c++ controller program.
-2. Make a launch file that can launch everything (Controller and Simualation).
+2. Make a launch file that can launch everything (Controller and Simulation).
 3. Modify `scripts/deploy/app.sh` such that, when `scripts/deploy/start.sh` is run, the task is executed automatically.
 
 ### Known Issues

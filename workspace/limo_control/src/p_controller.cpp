@@ -126,7 +126,7 @@ class P_Controller_Node : public rclcpp::Node
 
         //target pose
         double target_x_ = 5.0;
-        double target_y_ = 5.0;
+        double target_y_ = -5.0;
         double target_theta_ = M_PI / 2;
 
         //current pose
@@ -135,7 +135,7 @@ class P_Controller_Node : public rclcpp::Node
         double current_theta_ = 0; //dummy values, these will be updated as soon as odom messages are received
 
         //tolerances
-        double target_tolerance_ = 0.05; //tolerance for distance to target, need to eventually get this down to 5cm
+        double target_tolerance_ = 0.01; //tolerance for distance to target, need to eventually get this down to 5cm
         double target_angle_tolerance_ = 0.05;  //tolerance for target angle
 
         //status flags 
