@@ -80,7 +80,7 @@ class P_Controller_Node : public rclcpp::Node
             //calculate distance and angle errors
             double error_x = target_x_ - current_x_;
             double error_y = target_y_ - current_y_;
-            double distance_error = std::sqrt(error_x * error_x + error_y * error_y); //shouldnt this be able to be negative as well if you overshoot? NO bc thats accounted for by the angular correction (angle to target)
+            double distance_error = std::sqrt(error_x * error_x + error_y * error_y); 
 
             double angle_to_target = std::atan2(error_y, error_x); //required angle to turn to in order to head in right direction to target position
 
