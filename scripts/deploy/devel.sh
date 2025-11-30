@@ -25,7 +25,7 @@ done
 shift "$(($OPTIND -1))"
 
 if [ "$mode" == "gpu" ]; then
-    run_docker --runtime=nvidia \
+    run_docker --gpus all \
     -v $(dirname "$0")/../../workspace/:/root/workspace/src \
     limo_bot:sim bash
 else
