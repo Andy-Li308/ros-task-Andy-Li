@@ -7,6 +7,7 @@ Please read through [this](https://www.overleaf.com/read/dmgrrcmpkbkq#211e69) do
 - docker -- Where the Dockerfile lives.
 - scripts -- Where necessary external scripts live.
 - workspace -- Where all the packages live.
+- plots -- Where the generated simulation data plots are stored. 
 ```
 
 ### Build the simulator
@@ -19,7 +20,8 @@ Please read through [this](https://www.overleaf.com/read/dmgrrcmpkbkq#211e69) do
 
 ```bash
 ./scripts/deploy/devel.sh # To enter the docker container
-./scripts/deploy/start.sh # To start the simulation and control task 
+./scripts/deploy/start.sh # To start the simulation and control task
+./scripts/deploy/start.sh --plot # To start the simulation and control task, and generate data plots of the simulation 
 ros2 launch limo_simulation limo.launch.py # To launch the simulator
 ```
 
@@ -38,5 +40,6 @@ chmod +x ./scripts/deploy/app.sh
 ### Known Issues
 
 1. This will not work with docker desktop, please do not use it, use the default engine.
+2. pandas and matplotlib will need to be installed in order to plot the simulation data. 
 
 Feel free to modify anything else if it does not work as expected.

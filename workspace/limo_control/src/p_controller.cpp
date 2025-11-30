@@ -2,6 +2,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <cmath>
+#include <fstream>
 
 class P_Controller_Node : public rclcpp::Node
 {
@@ -14,6 +15,27 @@ class P_Controller_Node : public rclcpp::Node
              odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&P_Controller_Node::odomCallback, this, std::placeholders::_1));
             //create timer to call control loop 
             timer_ = this->create_wall_timer(std::chrono::milliseconds(50), std::bind(&P_Controller_Node::controllerLoop, this));
+
+            if(log_data){
+                //open log file
+                log_file_.open("/root/workspace/controller_log.csv"); //directory to log file
+
+                if (!log_file_.fail()){
+                    log_file_ << "Time,Target_X,Target_Y,Target_Theta,Current_X,Current_Y,Current_Theta\n";
+                    file_opened_successfully = true;
+                    start_time_ = this->get_clock()->now().seconds();
+                    RCLCPP_INFO(this->get_logger(), "Log file opened successfully");
+                }
+                else{
+                    RCLCPP_ERROR(this->get_logger(), "Failed to open log file");
+                }
+            }
+        }
+
+        ~P_Controller_Node(){
+            if (log_file_.is_open()) {
+                log_file_.close();
+            }
         }
 
     private: 
@@ -73,7 +95,7 @@ class P_Controller_Node : public rclcpp::Node
 
                 if (std::abs(current_theta_ - target_theta_) > target_angle_tolerance_){ //not at correct orientation yet, need to rotate 
                     vel_angular = Kp_angular_ * (target_theta_ - current_theta_);
-                    RCLCPP_INFO(this->get_logger(), "Final Rotation Phase: Current Theta: %.2f, Target Theta: %.2f, Angular Velocity: %.2f", current_theta_, target_theta_, vel_angular);
+                    RCLCPP_INFO(this->get_logger(), "Final Rotation Phase: Target Theta: %.2f, Angular Velocity: %.2f", target_theta_, vel_angular);
                 }
 
                 else { //robot is at correct pose, finished 
@@ -89,16 +111,14 @@ class P_Controller_Node : public rclcpp::Node
                     vel_linear = 0.0; //robot should only rotate 
                     vel_angular = Kp_angular_ * (angle_to_target - current_theta_);
 
-                    driving_phase_ = false;
-                    RCLCPP_INFO(this->get_logger(), "Initial Rotation Phase: Current Theta: %.2f, Target Theta: %.2f, Angular Velocity: %.2f", current_theta_, angle_to_target, vel_angular);
+                    RCLCPP_INFO(this->get_logger(), "Initial Rotation Phase: Target Theta: %.2f, Angular Velocity: %.2f", angle_to_target, vel_angular);
                 }
 
                 else{//robot is not at the right spot but IS facing right direction, drive towards target coords
                     vel_linear = Kp_linear_ * distance_error;
                     vel_angular = Kp_angle_trim_ * (angle_to_target - current_theta_); //small angle corrections while driving forward
 
-                    RCLCPP_INFO(this->get_logger(), "Driving Phase: Current X: %.2f, Current Y: %.2f, Target X: %.2f, Target Y: %.2f, Linear Velocity: %.2f, Angular Velocity: %.2f", current_x_, current_y_, target_x_, target_y_, vel_linear, vel_angular);
-
+                    RCLCPP_INFO(this->get_logger(), "Driving Phase: Target X: %.2f, Target Y: %.2f, Linear Velocity: %.2f, Angular Velocity: %.2f", target_x_, target_y_, vel_linear, vel_angular);
                 }
             }
 
@@ -108,7 +128,14 @@ class P_Controller_Node : public rclcpp::Node
             cmd_vel_pub_->publish(cmd_vel_msg);
             //show current stats for logging
             RCLCPP_INFO(this->get_logger(), "Current Position:  X= %.2f, Y= %.2f, Theta= %.2f", current_x_, current_y_, current_theta_);
-         }
+
+            if (log_data && file_opened_successfully && !target_pose_reached_){
+                //log data to file
+                double time_sec = this->get_clock()->now().seconds();
+                double time_elapsed = time_sec - start_time_;
+                log_file_ << time_elapsed << "," << target_x_ << "," << target_y_ << "," << target_theta_ << "," << current_x_ << "," << current_y_ << "," << current_theta_ << "\n";
+            }
+        }
 
         /* VARIABLES */
     
@@ -126,7 +153,7 @@ class P_Controller_Node : public rclcpp::Node
 
         //target pose
         double target_x_ = 5.0;
-        double target_y_ = -5.0;
+        double target_y_ = 5.0;
         double target_theta_ = M_PI / 2;
 
         //current pose
@@ -135,17 +162,18 @@ class P_Controller_Node : public rclcpp::Node
         double current_theta_ = 0; //dummy values, these will be updated as soon as odom messages are received
 
         //tolerances
-        double target_tolerance_ = 0.01; //tolerance for distance to target, need to eventually get this down to 5cm
+        double target_tolerance_ = 0.01; //tolerance for distance to target 
         double target_angle_tolerance_ = 0.05;  //tolerance for target angle
 
         //status flags 
         bool odom_received_ = false; 
         bool target_pose_reached_ = false; 
+        bool log_data = true; 
+        bool file_opened_successfully = false;
 
-        //bruh these are all highkey useless 
-        bool initial_rotation_phase_ = false; 
-        bool driving_phase_ = false;
-        bool final_rotation_phase_ = false;
+        //logging variables
+        std::ofstream log_file_;
+        double start_time_;
 };
 
 int main(int argc, char * argv[])
