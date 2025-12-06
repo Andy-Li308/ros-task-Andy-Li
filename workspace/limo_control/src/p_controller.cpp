@@ -3,6 +3,22 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <cmath>
 #include <fstream>
+#include <vector>
+#include <array>
+
+//helper function to convert angles to [-pi, pi]
+void convertAngle(double &angle){
+    double converted_angle = std::fmod(angle, 2.0 * M_PI);
+
+    if (converted_angle > M_PI){
+        converted_angle -= 2 * M_PI;
+    }
+    else if(converted_angle < -M_PI){
+        converted_angle += 2 * M_PI;
+    }
+
+    angle = converted_angle;
+}
 
 class P_Controller_Node : public rclcpp::Node
 {
@@ -16,6 +32,28 @@ class P_Controller_Node : public rclcpp::Node
             //create timer to call control loop 
             timer_ = this->create_wall_timer(std::chrono::milliseconds(50), std::bind(&P_Controller_Node::controllerLoop, this));
 
+            //initialize parameters with default values
+            this->declare_parameter<double>("Kp_linear", 1.0);
+            this->declare_parameter<double>("Kp_angular", 1.0);
+            this->declare_parameter<double>("Kp_angle_trim", 0.5);
+            this->declare_parameter<double>("target_x", 5.0);
+            this->declare_parameter<double>("target_y", 5.0);
+            this->declare_parameter<double>("target_theta", M_PI / 2);
+            this->declare_parameter<double>("target_tolerance", 0.01);
+            this->declare_parameter<double>("target_angle_tolerance", 0.05);
+
+            //get the parameters from the launch file
+            Kp_linear_ = this->get_parameter("Kp_linear").as_double();
+            Kp_angular_ = this->get_parameter("Kp_angular").as_double();
+            Kp_angle_trim_ = this->get_parameter("Kp_angle_trim").as_double();
+
+            target_x_ = this->get_parameter("target_x").as_double();
+            target_y_ = this->get_parameter("target_y").as_double();
+            target_theta_ = this->get_parameter("target_theta").as_double();
+
+            target_tolerance_ = this->get_parameter("target_tolerance").as_double();
+            target_angle_tolerance_ = this->get_parameter("target_angle_tolerance").as_double();
+            
             if(log_data){
                 //open log file
                 log_file_.open("/root/workspace/controller_log.csv"); //directory to log file
@@ -34,6 +72,11 @@ class P_Controller_Node : public rclcpp::Node
 
         ~P_Controller_Node(){
             if (log_file_.is_open()) {
+                //write log data to file
+                for (const auto& entry : log_data_vector_){
+                    log_file_ << entry[0] << "," << entry[1] << "," << entry[2] << "," << entry[3] << "," 
+                              << entry[4] << "," << entry[5] << "," << entry[6] << "\n";
+                }
                 log_file_.close();
             }
         }
@@ -86,8 +129,7 @@ class P_Controller_Node : public rclcpp::Node
 
             //make sure that the angle to target is in [-pi, pi] to avoid large rotations
             if(angle_to_target > M_PI || angle_to_target < -M_PI){
-                while (angle_to_target >= M_PI) angle_to_target -= 2 * M_PI;
-                while (angle_to_target <= -M_PI) angle_to_target += 2 * M_PI;
+                convertAngle(angle_to_target);
             }
 
             if (distance_error <= target_tolerance_){//robot is at correct x and y position
@@ -126,14 +168,15 @@ class P_Controller_Node : public rclcpp::Node
             cmd_vel_msg.linear.x = vel_linear;
             cmd_vel_msg.angular.z = vel_angular;
             cmd_vel_pub_->publish(cmd_vel_msg);
+
             //show current stats for logging
             RCLCPP_INFO(this->get_logger(), "Current Position:  X= %.2f, Y= %.2f, Theta= %.2f", current_x_, current_y_, current_theta_);
 
             if (log_data && file_opened_successfully && !target_pose_reached_){
-                //log data to file
+                //store data in log data vector
                 double time_sec = this->get_clock()->now().seconds();
                 double time_elapsed = time_sec - start_time_;
-                log_file_ << time_elapsed << "," << target_x_ << "," << target_y_ << "," << target_theta_ << "," << current_x_ << "," << current_y_ << "," << current_theta_ << "\n";
+                log_data_vector_.push_back({time_elapsed, target_x_, target_y_, target_theta_, current_x_, current_y_, current_theta_});
             }
         }
 
@@ -174,6 +217,8 @@ class P_Controller_Node : public rclcpp::Node
         //logging variables
         std::ofstream log_file_;
         double start_time_;
+        std::vector<std::array<double, 7>> log_data_vector_;
+        
 };
 
 int main(int argc, char * argv[])
